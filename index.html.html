@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMR ENTERPRISE - CONTROL TOTAL V3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; background-color: #f1f5f9; }
+        .canvas-bg { background-image: radial-gradient(#cbd5e1 0.8px, transparent 0.8px); background-size: 20px 20px; }
+        body.tema-vistamare { --brand: #1d4ed8; --sidebar: #0f172a; }
+        body.tema-bellavista { --brand: #7c3aed; --sidebar: #1e1b4b; }
+        .sidebar-brand { background-color: var(--sidebar); color: white; }
+        .bg-brand { background-color: var(--brand); }
+        canvas { border-radius: 2.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); background: white; }
+        
+        /* Tooltip Flotante Mejorado */
+        #tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.98);
+            color: white;
+            padding: 16px;
+            border-radius: 16px;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            min-width: 180px;
+        }
+    </style>
+</head>
+<body class="h-screen flex tema-vistamare" id="main-body">
+
+    <div id="tooltip" class="backdrop-blur-md"></div>
+
+    <div id="selector-sede" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6 text-center">
+        <div>
+            <h1 class="text-white text-7xl font-black mb-12 italic tracking-tighter">SMR <span class="text-blue-500">ENTERPRISE</span></h1>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <button onclick="seleccionarSede('vistamare')" class="p-12 bg-slate-900 rounded-[4rem] border border-white/5 hover:border-blue-500 transition-all">
+                    <div class="text-7xl mb-6">🌊</div>
+                    <h2 class="text-white text-4xl font-black">Vista Mare</h2>
+                </button>
+                <button onclick="seleccionarSede('bellavista')" class="p-12 bg-slate-900 rounded-[4rem] border border-white/5 hover:border-purple-500 transition-all">
+                    <div class="text-7xl mb-6">🍸</div>
+                    <h2 class="text-white text-4xl font-black">Bellavista</h2>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <aside class="w-85 sidebar-brand flex flex-col z-30 shadow-2xl">
+        <div class="p-10 border-b border-white/5 bg-black/20 text-center">
+            <h1 id="nombre-sede" class="text-2xl font-black italic uppercase">SMR</h1>
+            <button onclick="cambiarSede()" class="text-[10px] text-white/30 uppercase mt-2">🔄 Cambiar Sede</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8 space-y-8">
+            <div id="tab-bar" class="flex flex-wrap gap-2"></div>
+            <button onclick="crearSalon()" class="w-full py-4 bg-white/5 border border-dashed border-white/10 rounded-2xl text-[10px] text-white/40">+ Nueva Zona</button>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="crearMesa('cuadrada')" class="p-5 bg-white/5 rounded-2xl text-[9px] font-black uppercase">Mesa Recta</button>
+                <button onclick="crearMesa('circular')" class="p-5 bg-white/5 rounded-2xl text-[9px] font-black uppercase">Mesa Redonda</button>
+            </div>
+        </div>
+        <div class="p-10 border-t border-white/5 bg-black/40 text-center">
+            <span class="text-[10px] text-white/20 uppercase block mb-1">Venta Total Día</span>
+            <h3 id="total-dia-sidebar" class="text-4xl font-black text-white">$0</h3>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative overflow-hidden">
+        <header class="h-24 bg-white border-b flex items-center justify-between px-12 z-20">
+            <input type="date" id="date-pick" onchange="dibujar();" class="font-bold text-slate-900 border-none outline-none text-xl">
+            <div class="flex gap-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <span class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-emerald-500"></span> Libre</span>
+                <span class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-rose-500"></span> Ocupada</span>
+            </div>
+        </header>
+
+        <div class="flex-1 canvas-bg flex items-center justify-center p-12 overflow-auto">
+            <canvas id="canvas" width="1100" height="800"></canvas>
+        </div>
+
+        <div id="res-side" class="fixed right-0 top-0 bottom-0 w-[500px] bg-white shadow-2xl p-12 translate-x-full transition-transform duration-500 z-50 overflow-y-auto">
+            <div class="flex justify-between items-center mb-10">
+                <h2 id="res-nro-title" class="text-5xl font-black italic text-slate-900">Mesa</h2>
+                <button onclick="cerrarReserva()" class="w-12 h-12 bg-slate-100 rounded-full">✕</button>
+            </div>
+
+            <div class="space-y-8">
+                <div class="p-8 bg-slate-50 rounded-[3rem] border space-y-4 shadow-sm">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ficha Cliente</label>
+                    <input type="text" id="rn" placeholder="Nombre" class="w-full p-4 rounded-xl border-none shadow-sm font-bold">
+                    <input type="email" id="remail" placeholder="Correo" class="w-full p-4 rounded-xl border-none shadow-sm text-sm">
+                    <div class="flex gap-2">
+                        <input type="tel" id="rt" placeholder="Teléfono" class="w-1/2 p-4 rounded-xl border-none shadow-sm text-sm">
+                        <input type="number" id="rcant" placeholder="Pax" class="w-1/2 p-4 rounded-xl border-none shadow-sm text-sm">
+                    </div>
+                    <input type="time" id="rhora" class="w-full p-4 rounded-xl border-none shadow-sm text-sm">
+                    <select id="oper-estado" class="w-full p-4 rounded-xl bg-slate-950 text-white font-black">
+                        <option value="libre">LIBRE / RESERVA</option>
+                        <option value="ocupada">MESA OCUPADA</option>
+                    </select>
+                    <button onclick="confirmarReserva()" class="w-full bg-brand text-white py-5 rounded-xl font-black text-xs uppercase shadow-xl">Actualizar Mesa</button>
+                </div>
+
+                <div id="consumo-section" class="hidden">
+                    <div class="flex justify-between items-end mb-6">
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase">Comanda</h3>
+                        <span id="ticket-total" class="text-5xl font-black text-slate-900">$0</span>
+                    </div>
+                    <div class="relative mb-6">
+                        <input type="text" id="item-nom" placeholder="🔍 Escribe: Jugo, Limonada, Ceviche..." oninput="sugerirProducto()" class="w-full p-5 rounded-2xl bg-white border-2 border-slate-100 outline-none focus:border-brand">
+                        <div id="prod-sug-box" class="absolute w-full bg-white border mt-2 rounded-2xl shadow-2xl z-50 hidden max-h-80 overflow-y-auto"></div>
+                    </div>
+                    <div id="ticket-items" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const cv = document.getElementById('canvas'), ctx = cv.getContext('2d'), tt = document.getElementById('tooltip');
+        let sedeActual = null;
+        
+        let dbs = JSON.parse(localStorage.getItem('SMR_MASTER_V3')) || {
+            vistamare: {
+                salones: { "Comedor": [] }, reservas: {},
+                carta: [
+                    {nom: "Limonada Tradicional", pre: 3500}, {nom: "Limonada Menta Jengibre", pre: 4500},
+                    {nom: "Limonada Coco", pre: 5000}, {nom: "Jugo Mango de Pica", pre: 4500},
+                    {nom: "Jugo Guayaba Roja", pre: 4500}, {nom: "Cerveza Austral", pre: 4000},
+                    {nom: "Ceviche Pesca Día", pre: 15900}, {nom: "Lomo Vetado", pre: 24200}, {nom: "Papas Fritas", pre: 4200}
+                ], actual: "Comedor"
+            },
+            bellavista: {
+                salones: { "Sky Bar": [] }, reservas: {},
+                carta: [
+                    {nom: "BV Limonada Sky", pre: 3500}, {nom: "BV Jugo Natural", pre: 4500},
+                    {nom: "Acevichado Roll", pre: 11500}, {nom: "Tabla Mar y Tierra", pre: 26900}
+                ], actual: "Sky Bar"
+            }
+        };
+
+        function seleccionarSede(sede) {
+            sedeActual = sede;
+            document.getElementById('main-body').className = "h-screen flex " + (sede === 'vistamare' ? 'tema-vistamare' : 'tema-bellavista');
+            document.getElementById('nombre-sede').innerText = sede === 'vistamare' ? 'Vista Mare' : 'Bellavista';
+            document.getElementById('selector-sede').classList.add('hidden');
+            guardar();
+        }
+
+        function cambiarSede() { document.getElementById('selector-sede').classList.remove('hidden'); }
+        function db() { return dbs[sedeActual]; }
+        function guardar() { localStorage.setItem('SMR_MASTER_V3', JSON.stringify(dbs)); if(sedeActual) { renderTabs(); dibujar(); calcularCaja(); } }
+
+        function renderTabs() {
+            const b = document.getElementById('tab-bar'); b.innerHTML = '';
+            Object.keys(db().salones).forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = `px-6 py-3 rounded-2xl text-[10px] font-black uppercase border ${s === db().actual ? 'bg-brand text-white border-brand shadow-lg' : 'text-white/40 border-white/5'}`;
+                btn.innerText = s; btn.onclick = () => { db().actual = s; guardar(); }; b.appendChild(btn);
+            });
+        }
+
+        let sel = null, drag = null, offset = { x: 0, y: 0 };
+        
+        cv.onmousemove = (e) => {
+            const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+            const f = document.getElementById('date-pick').value;
+            const resHoy = db().reservas[f] || {};
+            const hoverMesa = db().salones[db().actual].find(m => x > m.x && x < m.x + m.w && y > m.y && y < m.y + m.h);
+            
+            if (hoverMesa && resHoy[hoverMesa.id] && resHoy[hoverMesa.id].nombre) {
+                const data = resHoy[hoverMesa.id];
+                let consumoTotal = 0;
+                if(data.consumo) data.consumo.forEach(i => consumoTotal += i.precio);
+
+                tt.style.display = 'block';
+                tt.style.left = (e.clientX + 20) + 'px';
+                tt.style.top = (e.clientY + 20) + 'px';
+                tt.innerHTML = `
+                    <div class="text-blue-400 font-black text-[9px] uppercase tracking-widest mb-1">Mesa ${hoverMesa.nro}</div>
+                    <div class="text-sm font-bold text-white mb-2 border-b border-white/10 pb-1">${data.nombre}</div>
+                    <div class="grid grid-cols-2 gap-2 opacity-80 text-[10px] mb-3">
+                        <span>👥 ${data.pax || '0'} Pax</span>
+                        <span class="text-right">⏰ ${data.hora || '--:--'}</span>
+                    </div>
+                    <div class="bg-white/10 p-2 rounded-lg text-center">
+                        <span class="text-[9px] block uppercase font-black opacity-50">Consumo Actual</span>
+                        <span class="text-xl font-black text-emerald-400">$${consumoTotal.toLocaleString()}</span>
+                    </div>
+                `;
+            } else { tt.style.display = 'none'; }
+
+            if (drag) { drag.x = x - offset.x; drag.y = y - offset.y; dibujar(); }
+        };
+
+        cv.onmousedown = (e) => {
+            const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+            const m = db().salones[db().actual].find(m => x > m.x && x < m.x + m.w && y > m.y && y < m.y + m.h);
+            if(m) { sel = m; drag = m; offset.x = x - m.x; offset.y = y - m.y; } else { sel = null; cerrarReserva(); }
+            dibujar();
+        };
+
+        window.onmouseup = () => { if (drag) guardar(); drag = null; };
+        cv.ondblclick = () => { if (sel) abrirReserva(); };
+
+        function dibujar() {
+            ctx.clearRect(0, 0, cv.width, cv.height);
+            const f = document.getElementById('date-pick').value, resHoy = db().reservas[f] || {};
+            db().salones[db().actual].forEach(m => {
+                const r = resHoy[m.id];
+                ctx.fillStyle = r && r.estado === 'ocupada' ? '#f43f5e' : '#10b981';
+                ctx.beginPath();
+                if(m.tipo === 'circular') ctx.arc(m.x + m.w/2, m.y + m.h/2, m.w/2, 0, Math.PI*2);
+                else ctx.roundRect(m.x, m.y, m.w, m.h, 25);
+                ctx.fill();
+                if(m === sel) { ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 6; ctx.stroke(); }
+                ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 18px 'Plus Jakarta Sans'";
+                ctx.fillText(m.nro, m.x + m.w/2, m.y + m.h/2 + 7);
+            });
+            calcularCaja();
+        }
+
+        function abrirReserva() {
+            document.getElementById('res-side').classList.remove('translate-x-full');
+            document.getElementById('res-nro-title').innerText = "Mesa " + sel.nro;
+            const f = document.getElementById('date-pick').value, r = (db().reservas[f] || {})[sel.id];
+            document.getElementById('rn').value = r ? r.nombre || '' : '';
+            document.getElementById('remail').value = r ? r.email || '' : '';
+            document.getElementById('rt').value = r ? r.tel || '' : '';
+            document.getElementById('rcant').value = r ? r.pax || '' : '';
+            document.getElementById('rhora').value = r ? r.hora || '' : '';
+            document.getElementById('oper-estado').value = r ? r.estado : 'libre';
+            if(r && r.estado === 'ocupada') { document.getElementById('consumo-section').classList.remove('hidden'); actualizarTicket(); }
+            else document.getElementById('consumo-section').classList.add('hidden');
+        }
+
+        function confirmarReserva() {
+            const f = document.getElementById('date-pick').value, est = document.getElementById('oper-estado').value;
+            if(!db().reservas[f]) db().reservas[f] = {};
+            const ex = db().reservas[f][sel.id] || {};
+            db().reservas[f][sel.id] = { ...ex, estado: est, nombre: document.getElementById('rn').value, email: document.getElementById('remail').value, tel: document.getElementById('rt').value, pax: document.getElementById('rcant').value, hora: document.getElementById('rhora').value };
+            guardar(); abrirReserva();
+        }
+
+        function sugerirProducto() {
+            const val = document.getElementById('item-nom').value.toLowerCase(), box = document.getElementById('prod-sug-box');
+            box.innerHTML = ''; if(val.length < 1) { box.classList.add('hidden'); return; }
+            db().carta.filter(i => i.nom.toLowerCase().includes(val)).forEach(item => {
+                const div = document.createElement('div');
+                div.className = "p-5 hover:bg-slate-50 cursor-pointer flex justify-between border-b text-sm font-bold";
+                div.innerHTML = `<span>${item.nom}</span><span class="text-brand">$${item.pre.toLocaleString()}</span>`;
+                div.onclick = () => {
+                    const f = document.getElementById('date-pick').value;
+                    if(!db().reservas[f][sel.id].consumo) db().reservas[f][sel.id].consumo = [];
+                    db().reservas[f][sel.id].consumo.push({ nom: item.nom, precio: item.pre });
+                    document.getElementById('item-nom').value = ''; box.classList.add('hidden');
+                    guardar(); actualizarTicket();
+                };
+                box.appendChild(div);
+            });
+            box.classList.remove('hidden');
+        }
+
+        function actualizarTicket() {
+            const f = document.getElementById('date-pick').value, r = db().reservas[f][sel.id], container = document.getElementById('ticket-items');
+            container.innerHTML = ''; let t = 0;
+            if(r && r.consumo) {
+                r.consumo.forEach((i, idx) => { t += i.precio; container.innerHTML += `<div class="flex justify-between p-4 bg-white rounded-2xl border text-xs font-bold"><span>${i.nom}</span><div class="flex gap-4"><span>$${i.precio.toLocaleString()}</span><button onclick="eliminarItem(${idx})" class="text-rose-500">✕</button></div></div>`; });
+            }
+            document.getElementById('ticket-total').innerText = '$' + t.toLocaleString();
+        }
+
+        function eliminarItem(idx) {
+            const f = document.getElementById('date-pick').value;
+            db().reservas[f][sel.id].consumo.splice(idx, 1);
+            guardar(); actualizarTicket();
+        }
+
+        function calcularCaja() {
+            const f = document.getElementById('date-pick').value, resHoy = db().reservas[f] || {};
+            let t = 0; Object.values(resHoy).forEach(r => { if(r.consumo) r.consumo.forEach(i => t += i.precio); });
+            document.getElementById('total-dia-sidebar').innerText = '$' + t.toLocaleString();
+        }
+
+        function cerrarReserva() { document.getElementById('res-side').classList.add('translate-x-full'); }
+        function crearMesa(tipo) { db().salones[db().actual].push({ id: Date.now(), tipo, x: 100, y: 100, w: 90, h: 90, nro: db().salones[db().actual].length + 1 }); guardar(); }
+        function crearSalon() { const n = prompt("Nombre Zona:"); if(n) { db().salones[n] = []; db().actual = n; guardar(); } }
+        document.getElementById('date-pick').value = new Date().toISOString().split('T')[0];
+    </script>
+</body>
+</html>
